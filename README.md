@@ -22,7 +22,7 @@ Add the `http` package to your `pubspec.yaml` file to handle HTTP requests:
 dependencies:
   flutter:
     sdk: flutter
-  http: ^0.15.0
+  http: ^latest-version
 ```
 
 Run `flutter pub get` to install the new dependency.
