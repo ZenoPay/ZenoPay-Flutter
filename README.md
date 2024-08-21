@@ -1,7 +1,4 @@
-# ZenoPay-Flutter
-Sure! Here’s a comprehensive guide for integrating ZenoPay into a Flutter application:
 
----
 
 # Integrating ZenoPay in Flutter
 
