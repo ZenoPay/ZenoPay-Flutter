@@ -1,40 +1,66 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'zeno_pay_config.dart';
 
-Future<void> createOrder({
-  required String buyerEmail,
-  required String buyerName,
-  required String buyerPhone,
-  required int amount,
-}) async {
-  final url = Uri.parse(zenoPayApiUrl);
+class ZenoPayService {
+  final String apiKey;
 
-  final orderData = {
-    'create_order': 1,
-    'buyer_email': buyerEmail,
-    'buyer_name': buyerName,
-    'buyer_phone': buyerPhone,
-    'amount': amount,
-    'account_id': accountId,
-    'api_key': apiKey,
-    'secret_key': secretKey,
-  };
+  ZenoPayService({required this.apiKey});
 
-  try {
+  final String baseUrl = 'https://zenoapi.com/api/payments';
+
+  /// Initiate Mobile Money Payment (Tanzania)
+  Future<Map<String, dynamic>> initiatePayment({
+    required String orderId,
+    required String buyerName,
+    required String buyerEmail,
+    required String buyerPhone,
+    required double amount,
+    String? webhookUrl,
+  }) async {
+    final url = Uri.parse('$baseUrl/mobile_money_tanzania');
+
+    final body = {
+      "order_id": orderId,
+      "buyer_name": buyerName,
+      "buyer_email": buyerEmail,
+      "buyer_phone": buyerPhone,
+      "amount": amount,
+      if (webhookUrl != null) "webhook_url": webhookUrl,
+    };
+
     final response = await http.post(
       url,
-      body: orderData,
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+      },
+      body: jsonEncode(body),
     );
 
     if (response.statusCode == 200) {
-      print('Order created successfully: ${response.body}');
+      return jsonDecode(response.body);
     } else {
-      print('Failed to create order: ${response.body}');
+      throw Exception(
+          'Failed to initiate payment: ${response.statusCode} ${response.body}');
     }
-  } catch (e) {
-    print('Error creating order: $e');
+  }
+
+  /// Check Order Status
+  Future<Map<String, dynamic>> checkOrderStatus(String orderId) async {
+    final url = Uri.parse('$baseUrl/order-status?order_id=$orderId');
+
+    final response = await http.get(
+      url,
+      headers: {
+        "x-api-key": apiKey,
+      },
+    );
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception(
+          'Failed to fetch order status: ${response.statusCode} ${response.body}');
+    }
   }
 }
-
-

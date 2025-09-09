@@ -1,142 +1,170 @@
+# ZenoPay Mobile Money Tanzania - Flutter Integration
 
+A clean Flutter implementation guide for integrating **ZenoPay Mobile Money Tanzania API** using the [`http`](https://pub.dev/packages/http) package and `dart:convert` for JSON handling.
 
-# Integrating ZenoPay in Flutter
+---
 
-## Introduction
+## Features
 
-ZenoPay provides a robust API for processing payments and creating orders. This guide walks you through integrating ZenoPay into your Flutter application, enabling you to create orders and handle payments seamlessly.
+* Initiate Mobile Money payments in Tanzania.
+* Check order/payment status.
+* Receive webhook notifications for completed payments.
 
-## Prerequisites
+---
 
-Before you start, ensure you have:
+## 1. Add Dependencies
 
-- A ZenoPay account with API credentials (API Key and Secret Key).
-- Flutter installed and a Flutter project set up.
-- The `http` package added to your `pubspec.yaml`.
-
-## Step 1: Add Dependencies
-
-Add the `http` package to your `pubspec.yaml` file to handle HTTP requests:
+In your `pubspec.yaml`:
 
 ```yaml
 dependencies:
   flutter:
     sdk: flutter
-  http: ^latest-version
+  http: ^1.1.0
 ```
 
-Run `flutter pub get` to install the new dependency.
+Then run:
 
-## Step 2: Configure API Constants
-
-Store your ZenoPay credentials and endpoint URL in a Dart file. Create a file named `zeno_pay_config.dart`:
-
-```dart
-// zeno_pay_config.dart
-
-const String zenoPayApiUrl = 'https://api.zeno.africa';
-const String apiKey = 'YOUR_API_KEY';
-const String secretKey = 'YOUR_SECRET_KEY';
-const String accountId = 'YOUR_ACCOUNT_ID';
+```bash
+flutter pub get
 ```
 
-Replace the placeholder values with your actual API credentials.
+---
 
-## Step 3: Create Order Function
+## 2. Create a ZenoPay Service
 
-Implement the function to create an order using the ZenoPay API. Add this to a Dart file, such as `zeno_pay_service.dart`:
+Create a file `zenopay_service.dart`:
 
 ```dart
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'zeno_pay_config.dart';
 
-Future<void> createOrder({
-  required String buyerEmail,
-  required String buyerName,
-  required String buyerPhone,
-  required int amount,
-}) async {
-  final url = Uri.parse(zenoPayApiUrl);
+class ZenoPayService {
+  final String apiKey;
+  final String baseUrl = 'https://zenoapi.com/api/payments';
 
-  final orderData = {
-    'create_order': 1,
-    'buyer_email': buyerEmail,
-    'buyer_name': buyerName,
-    'buyer_phone': buyerPhone,
-    'amount': amount,
-    'account_id': accountId,
-    'api_key': apiKey,
-    'secret_key': secretKey,
-  };
+  ZenoPayService({required this.apiKey});
 
-  try {
+  /// Initiate Mobile Money Payment (Tanzania)
+  Future<Map<String, dynamic>> initiatePayment({
+    required String orderId,
+    required String buyerName,
+    required String buyerEmail,
+    required String buyerPhone,
+    required double amount,
+    String? webhookUrl,
+  }) async {
+    final url = Uri.parse('$baseUrl/mobile_money_tanzania');
+    final body = {
+      "order_id": orderId,
+      "buyer_name": buyerName,
+      "buyer_email": buyerEmail,
+      "buyer_phone": buyerPhone,
+      "amount": amount,
+      if (webhookUrl != null) "webhook_url": webhookUrl,
+    };
+
     final response = await http.post(
       url,
-      body: orderData,
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+      },
+      body: jsonEncode(body),
     );
 
     if (response.statusCode == 200) {
-      print('Order created successfully: ${response.body}');
+      return jsonDecode(response.body);
     } else {
-      print('Failed to create order: ${response.body}');
+      throw Exception(
+        'Failed to initiate payment: ${response.statusCode} ${response.body}',
+      );
     }
-  } catch (e) {
-    print('Error creating order: $e');
+  }
+
+  /// Check Order Status
+  Future<Map<String, dynamic>> checkOrderStatus(String orderId) async {
+    final url = Uri.parse('$baseUrl/order-status?order_id=$orderId');
+
+    final response = await http.get(
+      url,
+      headers: {
+        "x-api-key": apiKey,
+      },
+    );
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception(
+        'Failed to fetch order status: ${response.statusCode} ${response.body}',
+      );
+    }
   }
 }
 ```
 
-## Step 4: Use the Create Order Function
+---
 
-You can now use the `createOrder` function in your Flutter widgets. For example, you can create a button that triggers the order creation:
+## 3. Example Usage in Flutter
 
 ```dart
-import 'package:flutter/material.dart';
-import 'zeno_pay_service.dart';
+void main() async {
+  final zenoPay = ZenoPayService(apiKey: 'YOUR_API_KEY');
 
-void main() {
-  runApp(MyApp());
-}
-
-class MyApp extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      home: Scaffold(
-        appBar: AppBar(
-          title: Text('ZenoPay Integration'),
-        ),
-        body: Center(
-          child: ElevatedButton(
-            onPressed: () {
-              createOrder(
-                buyerEmail: 'customer@example.com',
-                buyerName: 'John Doe',
-                buyerPhone: '0752117588',
-                amount: 10000,
-              );
-            },
-            child: Text('Create Order'),
-          ),
-        ),
-      ),
+  try {
+    // Initiate Payment
+    final paymentResponse = await zenoPay.initiatePayment(
+      orderId: '3rer407fe-3ee8-4525-456f-ccb95de38250',
+      buyerName: 'John Joh',
+      buyerEmail: 'iam@gmail.com',
+      buyerPhone: '0744963858',
+      amount: 1000,
+      webhookUrl: 'https://your-domain.com/payment-webhook',
     );
+
+    print('Payment Response: $paymentResponse');
+
+    // Check Order Status
+    final statusResponse =
+        await zenoPay.checkOrderStatus('3rer407fe-3ee8-4525-456f-ccb95de38250');
+
+    print('Order Status: $statusResponse');
+  } catch (e) {
+    print('Error: $e');
   }
 }
 ```
 
-## Step 5: Error Handling
+---
 
-For better error handling, you might want to implement logging or user notifications. Consider integrating packages like `logger` for logging or using `SnackBar` to notify users of errors.
+## 4. Handling Webhook Notifications
 
-## Advanced: Handling Responses and Payment Status
+Set up a backend endpoint (Node.js, PHP, or any server) to receive POST requests when payment status is `COMPLETED`.
 
-To handle responses and payment status updates, you might need to:
+**Security:** Verify the `x-api-key` in the request headers.
 
-- Parse JSON responses.
-- Implement retry logic for network issues.
-- Handle webhooks if ZenoPay supports them for payment status updates.
+**Example payload:**
 
-For webhooks, refer to the ZenoPay documentation and set up a server endpoint to process incoming webhook notifications.
+```json
+{
+  "order_id": "677e43274d7cb",
+  "payment_status": "COMPLETED",
+  "reference": "1003020496",
+  "metadata": {}
+}
+```
 
+---
+
+## 5. Next Steps
+
+* Build a **Flutter widget** with a button to trigger payment.
+* Show real-time order status updates.
+* Integrate your backend to securely handle webhooks.
+
+---
+
+**ZenoPay Flutter Integration** makes it easy to receive payments across Tanzania quickly and securely.
+
+---
